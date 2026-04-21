@@ -22,7 +22,8 @@ def get_transcript(youtube_url: str) -> list:
     """
     video_id = extract_video_id(youtube_url)
 
-    transcript_list = YouTubeTranscriptApi.list_transcripts(video_id)
+    ytt = YouTubeTranscriptApi()
+    transcript_list = ytt.list(video_id)
 
     # Try manually created captions first, then auto-generated
     try:
@@ -33,24 +34,24 @@ def get_transcript(youtube_url: str) -> list:
         try:
             transcript = transcript_list.find_generated_transcript(['en', 'en-US', 'en-GB'])
         except Exception:
-            # Fall back to whatever language is available and translate
+            # Fall back to whatever is available and translate to English
             transcript = next(iter(transcript_list))
             transcript = transcript.translate('en')
 
     raw = transcript.fetch()
 
-    segments = [
-        {'text': entry['text'].strip(), 'start': entry['start']}
-        for entry in raw
-        if entry['text'].strip()
-    ]
+    # newer versions return objects, older return dicts — handle both
+    segments = []
+    for entry in raw:
+        if hasattr(entry, 'text'):
+            text, start = entry.text.strip(), entry.start
+        else:
+            text, start = entry['text'].strip(), entry['start']
+        if text:
+            segments.append({'text': text, 'start': start})
+
     return segments
 
-
-# Keep these for backward compatibility (app.py calls delete_file)
-def download_audio(youtube_url: str, output_path: str) -> str:
-    """Not used anymore — transcript is fetched directly."""
-    raise NotImplementedError("Use get_transcript() instead.")
 
 def delete_file(path: str):
     """No-op since we no longer download files."""

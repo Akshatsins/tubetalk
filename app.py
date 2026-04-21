@@ -1,6 +1,6 @@
 import streamlit as st
 import time
-from transcribe import download_audio, transcribe_audio, delete_file
+from transcribe import get_transcript, delete_file
 
 from langchain_groq import ChatGroq
 from langchain_huggingface import HuggingFaceEmbeddings
@@ -183,17 +183,12 @@ if not st.session_state.vector_db:
                 if url_input:
                     with st.status("Processing video...", expanded=True) as status:
                         try:
-                            st.write("⬇️ Downloading audio...")
-                            audio_file = download_audio(url_input, "temp_audio.mp3")
-
-                            st.write("🎙️ Transcribing with Whisper...")
-                            segments = transcribe_audio(audio_file, api_key)
+                            st.write("📋 Fetching transcript from YouTube...")
+                            segments = get_transcript(url_input)
 
                             st.write("🧠 Building knowledge base...")
                             st.session_state.vector_db = create_vector_db(segments)
                             st.session_state.video_url = url_input
-
-                            delete_file(audio_file)
                             status.update(label="✅ Ready to chat!", state="complete", expanded=False)
                             time.sleep(0.5)
                             st.rerun()

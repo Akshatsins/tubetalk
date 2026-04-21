@@ -1,52 +1,57 @@
-import yt_dlp
-import os
-from groq import Groq
+from youtube_transcript_api import YouTubeTranscriptApi
+import re
 
-def download_audio(youtube_url: str, output_path: str) -> str:
-    ydl_opts = {
-        'format': 'bestaudio/best',
-        'outtmpl': output_path.replace('.mp3', ''),
-        'postprocessors': [{
-            'key': 'FFmpegExtractAudio',
-            'preferredcodec': 'mp3',
-            'preferredquality': '128',
-        }],
-        'quiet': True,
-    }
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        ydl.download([youtube_url])
-    
-    # yt-dlp appends .mp3 automatically
-    final_path = output_path if output_path.endswith('.mp3') else output_path + '.mp3'
-    return final_path
+def extract_video_id(url: str) -> str:
+    """Extract YouTube video ID from various URL formats."""
+    patterns = [
+        r'(?:v=|\/)([0-9A-Za-z_-]{11}).*',
+        r'(?:youtu\.be\/)([0-9A-Za-z_-]{11})',
+        r'(?:embed\/)([0-9A-Za-z_-]{11})',
+    ]
+    for pattern in patterns:
+        match = re.search(pattern, url)
+        if match:
+            return match.group(1)
+    raise ValueError(f"Could not extract video ID from URL: {url}")
 
 
-def transcribe_audio(audio_path: str, api_key: str) -> list:
-    """Transcribe using Groq's Whisper API. Returns list of segments with text and start time."""
-    client = Groq(api_key=api_key)
-    
-    with open(audio_path, "rb") as f:
-        transcription = client.audio.transcriptions.create(
-            file=(os.path.basename(audio_path), f.read()),
-            model="whisper-large-v3",
-            response_format="verbose_json",
-            timestamp_granularities=["segment"],
+def get_transcript(youtube_url: str) -> list:
+    """
+    Fetch transcript from YouTube using the Transcript API.
+    Returns a list of segments with 'text' and 'start' keys.
+    """
+    video_id = extract_video_id(youtube_url)
+
+    transcript_list = YouTubeTranscriptApi.list_transcripts(video_id)
+
+    # Try manually created captions first, then auto-generated
+    try:
+        transcript = transcript_list.find_manually_created_transcript(
+            ['en', 'en-US', 'en-GB']
         )
-    
-    segments = []
-    if hasattr(transcription, 'segments') and transcription.segments:
-        for seg in transcription.segments:
-            segments.append({
-                'text': seg.text.strip(),
-                'start': seg.start,
-            })
-    else:
-        # Fallback: treat whole transcript as one segment
-        segments = [{'text': transcription.text, 'start': 0.0}]
-    
+    except Exception:
+        try:
+            transcript = transcript_list.find_generated_transcript(['en', 'en-US', 'en-GB'])
+        except Exception:
+            # Fall back to whatever language is available and translate
+            transcript = next(iter(transcript_list))
+            transcript = transcript.translate('en')
+
+    raw = transcript.fetch()
+
+    segments = [
+        {'text': entry['text'].strip(), 'start': entry['start']}
+        for entry in raw
+        if entry['text'].strip()
+    ]
     return segments
 
 
+# Keep these for backward compatibility (app.py calls delete_file)
+def download_audio(youtube_url: str, output_path: str) -> str:
+    """Not used anymore — transcript is fetched directly."""
+    raise NotImplementedError("Use get_transcript() instead.")
+
 def delete_file(path: str):
-    if path and os.path.exists(path):
-        os.remove(path)
+    """No-op since we no longer download files."""
+    pass

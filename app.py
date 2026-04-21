@@ -2,10 +2,9 @@ import streamlit as st
 import time
 from transcribe import download_audio, transcribe_audio, delete_file
 
-from groq import Groq
 from langchain_groq import ChatGroq
 from langchain_huggingface import HuggingFaceEmbeddings
-from langchain_chroma import Chroma
+from langchain_community.vectorstores import FAISS
 from langchain_core.documents import Document
 
 # --- PAGE CONFIG ---
@@ -117,7 +116,7 @@ def create_vector_db(segments):
         for s in segments
     ]
     embeddings = get_embeddings()
-    return Chroma.from_documents(documents, embeddings, collection_name="tubetalk_cloud")
+    return FAISS.from_documents(documents, embeddings)
 
 def format_time(seconds):
     m, s = divmod(int(seconds), 60)
@@ -126,7 +125,7 @@ def format_time(seconds):
 # --- SIDEBAR ---
 with st.sidebar:
     st.markdown("### ▶️ TubeTalk Pro")
-    
+
     # API Key input (for when not using secrets)
     if not get_api_key():
         st.markdown("#### 🔑 Groq API Key")
@@ -148,8 +147,8 @@ with st.sidebar:
         st.write(f"Model: `{GROQ_MODEL}`")
         st.write(f"Embeddings: `{EMBEDDING_MODEL}`")
         try:
-            st.write(f"Vectors: `{len(st.session_state.vector_db.get()['ids'])}`")
-        except:
+            st.write(f"Vectors: `{st.session_state.vector_db.index.ntotal}`")
+        except Exception:
             pass
 
 # --- MAIN UI ---

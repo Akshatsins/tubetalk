@@ -1,0 +1,7 @@
+.streamlit/secrets.toml
+*.mp3
+*.wav
+__pycache__/
+*.pyc
+.env
+chroma_db/

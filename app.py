@@ -201,7 +201,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # --- CONFIG ---
-GROQ_MODEL = "llama3-8b-8192"
+GROQ_MODEL = "llama-3.3-70b-versatile"
 EMBEDDING_MODEL = "all-MiniLM-L6-v2"
 
 # --- STATE ---

@@ -13,12 +13,10 @@ def extract_video_id(url: str) -> str:
             return match.group(1)
     raise ValueError(f"Could not extract video ID from URL: {url}")
 
-
 def get_transcript(youtube_url: str) -> list:
     video_id = extract_video_id(youtube_url)
     ytt = YouTubeTranscriptApi()
     transcript_list = ytt.list(video_id)
-
     try:
         transcript = transcript_list.find_manually_created_transcript(['en', 'en-US', 'en-GB'])
     except Exception:
@@ -26,9 +24,7 @@ def get_transcript(youtube_url: str) -> list:
             transcript = transcript_list.find_generated_transcript(['en', 'en-US', 'en-GB'])
         except Exception:
             transcript = next(iter(transcript_list)).translate('en')
-
     raw = transcript.fetch()
-
     segments = []
     for entry in raw:
         if hasattr(entry, 'text'):
@@ -38,7 +34,6 @@ def get_transcript(youtube_url: str) -> list:
         if text:
             segments.append({'text': text, 'start': start})
     return segments
-
 
 def delete_file(path: str):
     pass
